@@ -1,0 +1,5 @@
+Token Counts:
+{'text': 1, 'typed': 128, 'best_written': 152}
+
+Performance (Accuracy) for best_written:
+best_written: 0.8125
