@@ -2,14 +2,13 @@ import os
 import easyocr
 import cv2
 import statistics
-from collections import Counter
 try:
     from bnlp import BasicTokenizer
     tokenizer = BasicTokenizer()
     use_bnlp = True
 except ImportError:
     use_bnlp = False
-    print("Warning: bnlp_toolkit not available. Using whitespace split for word-based tokenization.")
+    print("Warning: bnlp_toolkit not available. Using whitespace split for tokenization.")
 
 try:
     import pytesseract
@@ -41,7 +40,7 @@ base_dir = '/Users/simnim/text_project/texts'
 perf_data = {v: [] for v in versions[1:]}
 token_counts = []
 extracted_texts = {}
-symbol_tables = {}
+distinct_chars = {}
 
 for i in range(1, num_texts + 1):
     text_dir = os.path.join(base_dir, f'text{i}')
@@ -94,30 +93,25 @@ for i in range(1, num_texts + 1):
         print(f"\nText {i}, {v} OCR Extracted Text: {extracted_text}")
         print(f"OCR Confidence Scores: {confidence_scores}")
         
-        # Word-based tokenization (for comparison)
+        # Tokenize
         if use_bnlp:
-            word_tokens = tokenizer.tokenize(extracted_text)
+            tokens = tokenizer.tokenize(extracted_text)
         else:
-            word_tokens = extracted_text.split()
-        word_count = len(word_tokens)
-        print(f"Word Tokens for {v}: {word_tokens}")
-        print(f"Word Token Count for {v}: {word_count}")
-        
-        # Character-based tokenization (each character is a token)
-        char_tokens = list(extracted_text.replace(' ', ''))  # Remove spaces
-        char_count = len(char_tokens)
-        symbol_table = Counter(char_tokens)
-        symbol_tables[v] = symbol_table
-        print(f"Character Token Count for {v}: {char_count}")
-        print(f"Symbol Table for {v}:")
-        for char, count in sorted(symbol_table.items()):
-            print(f"  {char}: {count}")
-        
-        current_counts[v] = char_count  # Use character count for accuracy
+            tokens = extracted_text.split()
+        count = len(tokens)
+        print(f"Tokens for {v}: {tokens}")
+        print(f"Token Count for {v}: {count}")
+        current_counts[v] = count
         extracted_texts[v] = extracted_text
         
+        # Count distinct characters
+        unique_chars = set(extracted_text.replace(' ', ''))  # Remove spaces
+        distinct_chars[v] = {'count': len(unique_chars), 'chars': sorted(unique_chars)}
+        print(f"Distinct Characters for {v}: {len(unique_chars)}")
+        print(f"Character Set for {v}: {sorted(unique_chars)}")
+        
         if v == 'typed':
-            gt_count = char_count
+            gt_count = count
             gt_text = extracted_text
     
     if gt_count is None:
@@ -149,42 +143,38 @@ for v in versions[1:]:
         mean_perfs[v] = None
 
 # Output to console
-print("\nCharacter Token Counts:")
+print("\nToken Counts:")
 for counts in token_counts:
     print(counts)
-print("\nSymbol Tables:")
+print("\nDistinct Character Counts:")
 for v in versions:
-    if v in symbol_tables:
-        print(f"{v}:")
-        for char, count in sorted(symbol_tables[v].items()):
-            print(f"  {char}: {count}")
+    if v in distinct_chars:
+        print(f"{v}: {distinct_chars[v]['count']} unique characters")
 print("\nPerformance (Accuracy) for best_written:")
 for v, mean in mean_perfs.items():
     if mean is not None:
         if use_levenshtein:
-            print(f"{v}: Character Token Accuracy = {mean['token_accuracy']:.4f}, Text Accuracy = {mean['text_accuracy']:.4f}")
+            print(f"{v}: Token Accuracy = {mean['token_accuracy']:.4f}, Text Accuracy = {mean['text_accuracy']:.4f}")
         else:
-            print(f"{v}: Character Token Accuracy = {mean['token_accuracy']:.4f}")
+            print(f"{v}: Token Accuracy = {mean['token_accuracy']:.4f}")
     else:
         print(f"{v}: No data")
 
 # Save to file
 with open('test_results.txt', 'w') as f:
-    f.write("Character Token Counts:\n")
+    f.write("Token Counts:\n")
     for counts in token_counts:
         f.write(f"{counts}\n")
-    f.write("\nSymbol Tables:\n")
+    f.write("\nDistinct Character Counts:\n")
     for v in versions:
-        if v in symbol_tables:
-            f.write(f"{v}:\n")
-            for char, count in sorted(symbol_tables[v].items()):
-                f.write(f"  {char}: {count}\n")
+        if v in distinct_chars:
+            f.write(f"{v}: {distinct_chars[v]['count']} unique characters\n")
     f.write("\nPerformance (Accuracy) for best_written:\n")
     for v, mean in mean_perfs.items():
         if mean is not None:
             if use_levenshtein:
-                f.write(f"{v}: Character Token Accuracy = {mean['token_accuracy']:.4f}, Text Accuracy = {mean['text_accuracy']:.4f}\n")
+                f.write(f"{v}: Token Accuracy = {mean['token_accuracy']:.4f}, Text Accuracy = {mean['text_accuracy']:.4f}\n")
             else:
-                f.write(f"{v}: Character Token Accuracy = {mean['token_accuracy']:.4f}\n")
+                f.write(f"{v}: Token Accuracy = {mean['token_accuracy']:.4f}\n")
         else:
             f.write(f"{v}: No data\n")
